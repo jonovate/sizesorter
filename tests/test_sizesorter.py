@@ -2,7 +2,8 @@
 import os
 import sys
 parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, parentdir)
+if parentdir not in sys.path:
+    sys.path.insert(0, parentdir)
 ###
 
 import pytest
@@ -11,7 +12,8 @@ from sizesorter import SizeSorter
 def test_class():
     ss = SizeSorter()
     assert id(ss) > 0
-    
+
+   
 def test_numeric_to_x():
     
     with pytest.raises(AssertionError):
