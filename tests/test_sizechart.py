@@ -17,12 +17,12 @@ def test_class():
     x_offsets = x_offset('XS', 1, 'XL', 1)
     assert id(x_offsets)
 
-def invalid_chart():
+def test_invalid_chart():
     
     chart = {'J': 10}
     bad_offset = x_offset('A', 0, 'Z', -1)
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(AssertionError) as err:
         SizeChart(chart, bad_offset)                  #Missing A
         chart['A'] = 1
         SizeChart(chart, bad_offset)                  #Missing Z
@@ -57,7 +57,7 @@ def test_generate_list():
     list_8 = size_chart.generate_list(8)
     assert ['3XS','2XS','XS','S','M','L','XL','2XL'] == list_8
 
-def test_custom_list():
+def test_generate_custom_list():
     custom_chart = {'A': 1, 'B': 2, 'C': 3}
     offset = x_offset('A', 5, 'C', 5)
     size_chart = SizeChart(custom_chart, offset)

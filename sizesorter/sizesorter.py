@@ -28,9 +28,9 @@ class SizeSorter:
         """
 
         #Boundary checks
-        assert(size is not None)
-        assert(size[:-2].isnumeric())
-        assert(size[-2:] in ['XS','XL'])    #must end in S or L
+        assert size is not None, 'Must be valid size'
+        assert size[:-2].isnumeric(), 'Size must be numeric'
+        assert size[-2:] in ['XS','XL'], 'Size must end in XS/XL'   #TODO
 
         numeric, suffix = int(size[:-2]), size[-1]
         return 'X'*numeric + suffix
@@ -52,9 +52,9 @@ class SizeSorter:
         """
 
         #Boundary checks
-        assert(size is not None)
-        assert(size.isalpha())
-        assert(size[-2:] in ['XS','XL'])    #must end in S or L
+        assert size is not None, 'Must be valid size'
+        assert size.isalpha(), 'Size must be all alpha characters'
+        assert size[-2:] in ['XS','XL'], 'Size must end in XS/XL'   #TODO
 
         length_x, suffix = len(size[:-1]), size[-2:]   #[:-1] to catch final X
         return (str(length_x) if length_x > 1 else '') + suffix

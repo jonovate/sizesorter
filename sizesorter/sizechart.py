@@ -4,6 +4,7 @@
 from collections import namedtuple
 from operator import itemgetter
 from itertools import cycle
+from copy import deepcopy
 
 """Default mapping of sizes"""
 SIZE_CHART_DEFAULT = {
@@ -27,7 +28,7 @@ SIZE_CHART_WOMENS_TOPS_EXAMPLE = {
 }
 
 """
-Represents the values to decrement smaller sizes and increment larger sizes
+Represents the values to decrement for smaller sizes and increment for larger sizes
 
 Example: 
 Say size_chart['XS'] = 0, size_chart['XL'] = 100  and x_offset('XS', 5, 'XL', 10)
@@ -37,6 +38,12 @@ x_offset = namedtuple('x_offset',
                       'key_smallest smallest_decrement key_largest largest_increment')
 
 
+####TODO
+'''
+ ---Verbose
+ ---N vs X
+ ---Formatter
+'''
 class SizeChart():
     """
     Wrapper class for a size chart
@@ -52,13 +59,15 @@ class SizeChart():
             greater than input values.  
             Default - (1 to decrement XS, +1 to increment XL)
         """
-        self.size_chart = size_chart if size_chart else SIZE_CHART_DEFAULT
+        size_chart_shallow = size_chart if size_chart else SIZE_CHART_DEFAULT
         self.x_offsets = x_offsets if x_offsets else x_offset('XS', 10, 'XL', 10)
 
-        assert(self.x_offsets.key_smallest in self.size_chart)
-        assert(self.x_offsets.key_largest in self.size_chart)
-        assert(self.x_offsets.smallest_decrement > 0)
-        assert(self.x_offsets.largest_increment > 0)
+        assert self.x_offsets.key_smallest in size_chart_shallow, 'key_smallest not in size_chart'
+        assert self.x_offsets.key_largest in size_chart_shallow, 'key_largest not in size_chart'
+        assert self.x_offsets.smallest_decrement > 0, 'smallest_decrement must be positive number'
+        assert self.x_offsets.largest_increment > 0, 'largest_increment must be positive number'
+        
+        self.size_chart = deepcopy(size_chart_shallow)
 
     def _next_x_offset(self, x_size):
         """
