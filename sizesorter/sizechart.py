@@ -129,6 +129,7 @@ SIZE_CHART_FORMAT_DEFAULTS = {'verbose': False,
  ---Verbose
  ---N vs X
  ---Formatter
+ ---Single Ended Dynamic Size
 '''
 class SizeChart():
     """
@@ -146,6 +147,7 @@ class SizeChart():
         :param dict formatting_options: Formatting options for the Size Chart
             Default - Uses SIZE_CHART_FORMAT_DEFAULTS map
         """
+        self._enable_dynamic_size_cache = True
 
         self.dynamic_operations = (dynamic_operations if dynamic_operations
                                    else DYNAMIC_OPERATION_DEFAULTS)
@@ -186,6 +188,50 @@ class SizeChart():
         size_dict = {key: Size(key, value, key, False) for key, value in simple_dict.items()}     
         return cls(size_dict, dynamic_operations)
 
+    def __len__(self):
+        """
+        Returns the length of the Size Chart
+        
+        :return: The length of the Size Chart
+        :rtype int
+        """
+        return len(self.size_chart)
+
+    def _is_dynamic_key_format(self, size_key):
+        """
+        Determines whether the key would be considered a dynamic key based on the Dynamic Operations
+        configuration passed in on instantion.
+        
+        :param str size_key: The size to look up in our chart.
+        :returns Whether the key would be considered a dynamic key based on its format
+        :rtype bool
+        """
+        return size_key.endswith(self.dynamic_operations.key_smallest) or \
+               size_key.endswith(self.dynamic_operations.key_largest)
+
+    def _split_dynamic_key(self, size_key):
+        """
+        Splits a potential dynamic key into prefix and dynamic key suffix.
+
+        :param str size_key: The size to look up in our chart.
+        :returns A tuple of prefix and dynamic key suffix.  Suffix will be None if not dynamic key.
+        :rtype tuple
+        """
+        if not self._is_dynamic_key_format(size_key):
+            return (size_key, None)
+
+        suff_len = (len(self.dynamic_operations.key_smallest)
+                   if size_key.endswith(self.dynamic_operations.key_smallest)
+                   else len(self.dynamic_operations.key_largest))
+         
+        return (size_key[:-suff_len], size_key[-suff_len:])
+
+    def disable_dynamic_size_cache(self):
+        """
+        Disables saving of generated dynamic sizes into Size Chart (Enabled by Default)
+        """
+        self._enable_dynamic_size_cache = False        
+
     def set_formatting_options(self, formatting_options):
         """
         Override the Formatting options for the Size Chart
@@ -200,7 +246,7 @@ class SizeChart():
         """
         Returns the next dynamic size based on the present value and formatting options
 
-        :param str x_size: The current x-side which we need to decrease/increase
+        :param str dynamic_size: The current x-side which we need to decrease/increase
         :return: The next size down (for smaller) or up (for larger)
         :rtype str
         """
@@ -212,17 +258,29 @@ class SizeChart():
         else:
             return '{}{}'.format(int(dynamic_size[0]) +1, dynamic_size[1:])
 
-
-    def generate_list(self, length=5):
+    def get_size(self, size_key):
         """
-        Generates a list around the mid-point size. (len//2)
+        Retrieves the size and/or generates it if does not exist
+
+        :param str size_key: The size to look up in our chart.
+        :return: The Size object
+        :rtype Size
+        """
+        is_dynamic_size = self._is_dynamic_key_format(size_key)
+        size = self.size_chart.get(size_key)
+        
+    def generate_list(self, length=len(SIZE_CHART_DEFAULTS)):
+        """
+        Generates an ordered specific-sized list, pivoted around the mid-point size. (len//2)
         Will retract from smallest-end first and extend on largest-end first.
         
         :param int length: The length of the size list to generate
-            Default - 5
+            Default - len(SIZE_CHART_DEFAULTS) (5)
         :return: List of sizes of specified length per formtting options
         :rtype list
         """
+        if length is None:  #For Pytest parameter hack
+            length = len(SIZE_CHART_DEFAULTS)
 
         #Ensure dict key ordering by value (dunders overriden in Size class @total_ordering)
         sorted_sizes = [skey for skey,_ in sorted(self.size_chart.items(),
@@ -240,5 +298,22 @@ class SizeChart():
                 #Increment number on either side as necessary
                 next_size = self._next_dynamic_operation(sorted_sizes[idx])
                 sorted_sizes.insert(0 if idx == 0 else len(sorted_sizes), next_size)
+
+        return sorted_sizes
+
+    def generate_list_range(self, key_smallest, key_largest):
+        """
+        Generates an ordered list of specified Sizes between the two ranges (inclusive).
+        Per Formatting Options.
+
+        :param str key_smallest: The start Size of the list
+        :param str key_largest: The end Size in the list
+        :return: List of sizes in the range
+        :rtype list
+        """
+
+        #Ensure dict key ordering by value (dunders overriden in Size class @total_ordering)
+        sorted_sizes = [skey for skey,_ in sorted(self.size_chart.items(),
+                                                  key=lambda d: d[1])]
 
         return sorted_sizes 
