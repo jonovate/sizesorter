@@ -39,3 +39,7 @@ def test_x_to_numeric():
     assert SizeSorter._x_to_numeric('XS') != '1XS'
     assert SizeSorter._x_to_numeric('XS') == 'XS'
     assert SizeSorter._x_to_numeric('XXXXXS') == '5XS'
+
+
+if __name__ == "__main__":
+    pytest.main()
