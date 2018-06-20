@@ -149,6 +149,8 @@ class SizeChart():
             Default - Uses DYNAMIC_OPERATION_DEFAULTS
         :param dict formatting_options: Formatting options for the Size Chart
             Default - Uses SIZE_CHART_FORMAT_DEFAULTS map
+
+        
         """
         self._dynamic_size_cache = True
 
@@ -156,16 +158,17 @@ class SizeChart():
                                    else DYNAMIC_OPERATION_DEFAULTS)
         size_chart_shallow = size_chart if size_chart else SIZE_CHART_DEFAULTS        
 
-        assert all([isinstance(v, Size) for v in size_chart_shallow.values()]), \
-            'Size Chart dictionary values should be of type Size, otherwise use .from_simple_dict()'
-        assert self.dynamic_operations.key_smallest in size_chart_shallow, \
-            'key_smallest not in size_chart'
-        assert self.dynamic_operations.key_largest in size_chart_shallow, \
-            'key_largest not in size_chart'
-        assert self.dynamic_operations.smallest_increment < 0, \
-            'smallest_increment must be a negative number'
-        assert self.dynamic_operations.largest_increment > 0, \
-            'largest_increment must be a positive number'
+        if not all([isinstance(v, Size) for v in size_chart_shallow.values()]):
+            raise ValueError('Size Chart dictionary values should be of type Size,'
+                             'otherwise use .from_simple_dict()')
+        if not self.dynamic_operations.key_smallest in size_chart_shallow:
+            raise ValueError('key_smallest not in size_chart')
+        if not self.dynamic_operations.key_largest in size_chart_shallow:
+            raise ValueError('key_largest not in size_chart')
+        if not self.dynamic_operations.smallest_increment < 0:
+            raise ValueError('smallest_increment must be a negative number')
+        if not self.dynamic_operations.largest_increment > 0:
+            raise ValueError('largest_increment must be a positive number')
         
         self.size_chart = deepcopy(size_chart_shallow)
         #Make sure they're set in case user forgot
@@ -183,10 +186,13 @@ class SizeChart():
 
         :param tpl dynamic_operations: Tuple of dynamic keys and offsets to apply to dynamic values
             Default - Uses DYNAMIC_OPERATION_DEFAULTS
+        
+        :raise ValueError: If simple_dict contains any values that are not Numbers
+        :raise ValueError: If simple_dict contains any values that are not Numbers
         """
         from numbers import Number
-        assert all([isinstance(v, Number) for v in simple_dict.values()]), \
-            'Size Chart dictionary values should be Numbers'
+        if not all([isinstance(v, Number) for v in simple_dict.values()]):
+            raise ValueError('Size Chart dictionary values should be Numbers')
 
         size_dict = {key: Size(key, value, key, False) for key, value in simple_dict.items()}     
         return cls(size_dict, dynamic_operations)
@@ -200,10 +206,10 @@ class SizeChart():
         """
         return len(self.size_chart)
 
-    def _is_dynamic_key_format(self, size_key):
+    def _is_potentially_dynamic(self, size_key):
         """
-        Determines whether the key would be considered a dynamic key based on the Dynamic Operations
-        configuration passed in on instantion.
+        Determines whether the key could be considered (no guarantee) a dynamic key based on the
+        Dynamic Operations configuration passed in on instantiation.
         
         :param str size_key: The size to look up in our chart.
         :returns Whether the key would be considered a dynamic key based on its format
@@ -212,23 +218,29 @@ class SizeChart():
         return size_key.endswith(self.dynamic_operations.key_smallest) or \
                size_key.endswith(self.dynamic_operations.key_largest)
 
-    def _split_dynamic_key(self, size_key):
+    def _parse_size_key(self, size_key):
         """
         Splits a potential dynamic key into prefix and dynamic key suffix.
 
         :param str size_key: The size to look up in our chart.
-        :returns A tuple of prefix and dynamic key suffix.  Suffix will be None if not dynamic key.
-        :rtype tuple(str, str)
+        :returns A tuple whether dynamic key, its prefix and suffix. 
+                Prefix will also be empty if not dynamic key.
+        :rtype tuple(bool, str, str)
+
+        :raises ValuError: If the key is not parsable (invalid characters, etc.)
         """
-        if not self._is_dynamic_key_format(size_key):
-            return (size_key, None)
+        if not self._is_potentially_dynamic(size_key):
+            return ('', size_key, False)
 
         suff_len = (len(self.dynamic_operations.key_smallest)
                    if size_key.endswith(self.dynamic_operations.key_smallest)
                    else len(self.dynamic_operations.key_largest))
 
         prefix = size_key[:-suff_len]
-        return (prefix if prefix not in ['0','1'] else '', size_key[-suff_len:])
+        if not(prefix == '' or prefix.isalnum()):
+            raise ValueError('Prefix of Dynamic Key must be a positive number or not set')
+
+        return (prefix if prefix not in ['1'] else '', size_key[-suff_len:], True)
 
     def _generate_dynamic_size(self, size_key):
         """Calculates a dynamic Size based on the key and the dynamic_operation of the Chart.
@@ -237,7 +249,7 @@ class SizeChart():
         :return The generated Dynamic Size
         :rtype Size
         """
-        prefix, suffix = self._split_dynamic_key(size_key)
+        prefix, suffix, _ = self._parse_size_key(size_key)
         base_suffix = self.size_chart[suffix]
 
         int_prefix = (int(prefix) - 1 if prefix else 0)
@@ -262,18 +274,21 @@ class SizeChart():
         :return: The Size object
         :rtype Size
         
-        :raises ValueError: If an invalid non-dynamic size is passed in. ('4L' or 'X')
+        :raises ValueError: If an invalid dynamic size is passed in.
+            Examples: '-5XL', '+3XL', '4L' {non-dynamic} or 'X' {invalid size}
         """
-        is_dynamic_size = self._is_dynamic_key_format(size_key)
+        is_dynamic_size = self._is_potentially_dynamic(size_key)
         
         size = self.size_chart.get(size_key)
         is_new = size is None
 
-        if is_new and is_dynamic_size:
-            size = self._generate_dynamic_size(size_key)
-        elif is_new and not is_dynamic_size:   
-            #Let exception be thrown to caller if not valid (ie: '4L')
-            size = Size(size_key, float(size_key), size_key, False)
+        if is_new:
+            if is_dynamic_size:
+                size = self._generate_dynamic_size(size_key)
+            elif size_key.isnumeric():
+                size = Size(size_key, float(size_key), size_key, False)
+            else:
+                raise ValueError('Base size not defined and/or not dynamic')
         
         if is_new and self._dynamic_size_cache:
             self.size_chart[size_key] = size
