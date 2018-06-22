@@ -1,5 +1,5 @@
 # SizeSorter
-Simple module to sort an iterable by apparel size (...XS, S, M, L, XL...).
+Simple module to sort an iterable by apparel size and generate an iterable as well (...XS, S, M, L, XL...).
 
 * Support for different formatted sizes ('M', 'Large', 'XXX', '4XL')'
 * Custom Size dictionaries (other than XS/S/M/L/XL, etc.) (ie: i18n)
