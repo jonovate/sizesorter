@@ -213,13 +213,13 @@ def test_parse_size_key_exception(size_chart, size_key, expected_tpl):
     #TODO - Test Verbose and XXL keys    
 def test_dynamic_size_cache(default_size_chart):
     chart_size = len(default_size_chart)
-    default_size_chart._get_size('2XS')    #Size should increase by 1
-    chart_size += 1
+    default_size_chart._get_size('2XS')    #Size should remain the same
     assert chart_size == len(default_size_chart)   
     
-    default_size_chart.disable_dynamic_size_cache()
-    default_size_chart._get_size('2XL')
-    assert chart_size == len(default_size_chart)  #Size should have staid the same
+    default_size_chart.enable_dynamic_size_cache()
+    default_size_chart._get_size('2XL')   #Size should increase now
+    chart_size += 1
+    assert chart_size == len(default_size_chart) 
 
 @pytest.mark.parametrize("size_chart, size_key, expected_tpl", 
     [(default_size_chart, 'XS', ('XS', 0, 'X-Small', True)),
@@ -297,11 +297,11 @@ def test_get_size(size_chart, size_key, expected_tpl):
 def test_get_size_exception(default_size_chart, size_key, expected_tpl):
     
     with pytest.raises(expected_tpl[0]) as ee:
-        assert default_size_chart()._get_size(size_key)
+        default_size_chart()._get_size(size_key)
 
     assert str(ee.value).find(expected_tpl[1]) > -1
 
-@pytest.mark.parametrize("size_chart, list_size, expected", 
+@pytest.mark.parametrize("size_chart, list_length, expected_list", 
     [(default_size_chart, 1, ['M']),
      (default_size_chart, 2, ['M','L']),
      (default_size_chart, 3, ['S','M','L']),
@@ -325,18 +325,28 @@ def test_get_size_exception(default_size_chart, size_key, expected_tpl):
      (custom_size_chart, None, ['2A','A','B','C','2C']),
      (custom_size_chart, 7, ['3A','2A','A','B','C','2C','3C']),
     ],)
-def test_generate_list(size_chart, list_size, expected):
+def test_generate_lengthed_list(size_chart, list_length, expected_list):
 
     #Generate list is supposed to remove from left first for smaller, and add to right for larger
-    assert size_chart().generate_list(list_size) == expected
+    assert size_chart().generate_lengthed_list(list_length) == expected_list
 
     #TODO - Test Verbose and XXL keys
     #TODO - Test Single-Ended
 
-def test_generate_list_range(default_size_chart):
+@pytest.mark.parametrize("size_chart, start_range, end_range, expected_list", 
+    [(default_size_chart, 'M', 'M', ['M']),
+    (default_size_chart, 'S', 'M', ['S','M']),
+     (default_size_chart_and_dynamic_operations, 'S', 'S', ['S']),
+     (default_size_chart_and_dynamic_operations, 'S', 'L', ['S','M','L']),
+     (custom_size_chart, 'B', 'C', ['B', 'C']),
+    ],)
+def test_generate_range(size_chart, start_range, end_range, expected_list):
 
-    list_M = default_size_chart.generate_list_range('M', 'M')
-    #assert ['M'] == list_M
+    assert list(size_chart().generate_range_iter(start_range, end_range)) == expected_list
+    assert size_chart().generate_range_list(start_range, end_range) == expected_list
+
+    #TODO - Test Verbose and XXL keys
+    #TODO - Test Single-Ended
 
     # list_2 = size_chart.generate_list(2)
     # assert ['M', 'L'] == list_2
@@ -356,6 +366,25 @@ def test_generate_list_range(default_size_chart):
     # list_8 = size_chart.generate_list(8)
     # assert ['2XS','XS','S','M','L','XL','2XL', '3XL'] == list_8
 
+@pytest.mark.parametrize("size_chart, start_range, end_range, expected_tpl",
+    [(default_size_chart, '5M', '5M', (ValueError, 'Base size not')),
+     (default_size_chart, 'M', '5M', (ValueError, 'Base size not')),
+     (default_size_chart, 'B', 'C', (ValueError, 'Base size not')),
+     (default_size_chart, '-5XS', '-3XS', (ValueError, 'positive number or not set')),
+     (default_size_chart, 'XS', '-3XS', (ValueError, 'positive number or not set')),
+     (default_size_chart, '+4XL', '+7XL', (ValueError, 'positive number or not set')),
+     (default_size_chart, 'XL', '+7XL', (ValueError, 'positive number or not set')),
+    ],)
+def test_generate_range_exception(size_chart, start_range, end_range, expected_tpl):
+    
+    size = size_chart()
+    # with pytest.raises(expected_tpl[0]) as ee:
+    #     size.generate_range_list(start_range, end_range)
+        
+    with pytest.raises(expected_tpl[0]) as ee:
+        size.generate_range_iter(start_range, end_range)
+
+    assert str(ee.value).find(expected_tpl[1]) > -1
 
 if __name__ == "__main__":
-    pytest.main()
+    pytest.main(['-q', '-s', '--no-cov', 'tests/test_sizechart.py::test_generate_range'])
