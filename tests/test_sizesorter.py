@@ -42,4 +42,4 @@ def test_x_to_numeric():
 
 
 if __name__ == "__main__":
-    pytest.main()
+    pytest.main(['-q', '-s', '--no-cov', 'tests/test_sizesorter'])
