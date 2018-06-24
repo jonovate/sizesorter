@@ -7,15 +7,15 @@ if parentdir not in sys.path:
 ###
 
 import pytest
+
 from sizesorter import SizeSorter
 
 def test_class():
-    ss = SizeSorter()
-    assert id(ss) > 0
+    assert id(SizeSorter()) > 0
 
    
 def test_numeric_to_x():
-    
+
     with pytest.raises(AssertionError):
         SizeSorter._numeric_to_x(None)
         SizeSorter._numeric_to_x('3M')
@@ -27,12 +27,12 @@ def test_numeric_to_x():
     assert SizeSorter._numeric_to_x('5XS') == 'XXXXXS'
 
 def test_x_to_numeric():
-    
+
     with pytest.raises(AssertionError):
         SizeSorter._x_to_numeric(None)
         SizeSorter._x_to_numeric('XXXM')
         SizeSorter._x_to_numeric('3XL')
-    
+
     assert SizeSorter._x_to_numeric('XL') != '1XL'
     assert SizeSorter._x_to_numeric('XL') == 'XL'
     assert SizeSorter._x_to_numeric('XXXL') == '3XL'

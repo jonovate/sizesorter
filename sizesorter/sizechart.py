@@ -4,7 +4,6 @@ Structure of size charts and values
 
 from collections import namedtuple
 from copy import deepcopy
-from itertools import cycle
 
 from .size import Size
 
@@ -55,10 +54,10 @@ DYNAMIC_OPERATION_DEFAULTS = dynamic_operation('XS', -10, 'XL', 10)
 
 """
 Default Size Chart formatting options
-    
+
     verbose: Whether to display verbose name or just short value
     dynamic_size_verbose: Whether to display dynamics (XS/XL/etc.) sizes as verbose or not
-    dynmic_size_formatter: Formatting method for the small/larger dynamic sizes 
+    dynamic_size_formatter: Formatting method for the small/larger dynamic sizes
 """
 SIZE_CHART_FORMAT_DEFAULTS = {'verbose': False,
                               'dynamic_size_verbose': False,
@@ -103,7 +102,7 @@ class SizeChart():
 
         self.dynamic_operations = (dynamic_operations if dynamic_operations
                                    else DYNAMIC_OPERATION_DEFAULTS)
-        size_chart_shallow = size_chart if size_chart else SIZE_CHART_DEFAULTS        
+        size_chart_shallow = size_chart if size_chart else SIZE_CHART_DEFAULTS
 
         if not all([isinstance(v, Size) for v in size_chart_shallow.values()]):
             raise ValueError('Size Chart dictionary values should be of type Size,'
@@ -116,7 +115,7 @@ class SizeChart():
             raise ValueError('smallest_increment must be a negative number')
         if not self.dynamic_operations.largest_increment > 0:
             raise ValueError('largest_increment must be a positive number')
-        
+
         self.size_chart = deepcopy(size_chart_shallow)
 
         #Setup double-linked pointers
@@ -135,10 +134,10 @@ class SizeChart():
                 size_obj.previous_size_key = '2' + key
             elif key == self.dynamic_operations.key_largest:
                 size_obj.is_dynamic_size = True
-                size_obj.next_size_key = '2' + key 
+                size_obj.next_size_key = '2' + key
 
         #Deepcopy since they can be overwritten after instantiation
-        self.formatting_options = deepcopy(formatting_options 
+        self.formatting_options = deepcopy(formatting_options
                                            if formatting_options
                                            else SIZE_CHART_FORMAT_DEFAULTS)
 
@@ -149,7 +148,7 @@ class SizeChart():
 
         :param tpl dynamic_operations: Tuple of dynamic keys and offsets to apply to dynamic values
             Default - Uses DYNAMIC_OPERATION_DEFAULTS
-        
+
         :raise ValueError: If simple_dict contains any values that are not Numbers
         :raise ValueError: If simple_dict contains any values that are not Numbers
         """
@@ -157,13 +156,13 @@ class SizeChart():
         if not all([isinstance(v, Number) for v in simple_dict.values()]):
             raise ValueError('Size Chart dictionary values should be Numbers')
 
-        size_dict = {key: Size(key, value, key, False) for key, value in simple_dict.items()}     
+        size_dict = {key: Size(key, value, key, False) for key, value in simple_dict.items()}
         return cls(size_dict, dynamic_operations)
 
     def __len__(self):
         """
         Returns the length of the Size Chart
-        
+
         :return: The length of the Size Chart
         :rtype int
         """
@@ -173,7 +172,7 @@ class SizeChart():
         """
         Determines whether the key could be considered (no guarantee) a dynamic key based on the
         Dynamic Operations configuration passed in on instantiation.
-        
+
         :param str size_key: The size to look up in our chart.
         :returns Whether the key would be considered a dynamic key based on its format
         :rtype bool
@@ -208,7 +207,7 @@ class SizeChart():
     def _generate_dynamic_size(self, size_key):
         """
         Calculates a dynamic Size based on the key and the dynamic_operation of the Chart.
-        
+
         :str size_key str: The Dynamic Key to generate a Size from
         :return The generated Dynamic Size
         :rtype Size
@@ -270,12 +269,12 @@ class SizeChart():
         :param str size_key: The size key to convert to a size
         :return: A tuple of Size object and whether it existed in Chart already
         :rtype tpl(Size,bool)
-        
+
         :raises ValueError: If an invalid dynamic size is passed in.
             Examples: '-5XL', '+3XL', '4L' {non-dynamic} or 'X' {invalid size}
         """
         is_dynamic_size = self._is_potentially_dynamic(size_key)
-        
+
         size = self.size_chart.get(size_key)
         is_new = size is None
 
@@ -298,15 +297,15 @@ class SizeChart():
         :param str size_key: The size to look up in our chart.
         :return: The Size object
         :rtype Size
-        
+
         :raises ValueError: If an invalid dynamic size is passed in.
             Examples: '-5XL', '+3XL', '4L' {non-dynamic} or 'X' {invalid size}
         """
         size, is_new = self._size_key_to_size(size_key)
-        
+
         if is_new and self._dynamic_size_cache:
             self.size_chart[size_key] = size
-    
+
         return size
 
     def enable_dynamic_size_cache(self):
@@ -314,12 +313,12 @@ class SizeChart():
         Disables saving of generated dynamic sizes into Size Chart (Disabled by Default).
         Useful if you think you will be using it often.
         """
-        self._dynamic_size_cache = True        
+        self._dynamic_size_cache = True
 
     def set_formatting_options(self, formatting_options):
         """
         Override the Formatting options for the Size Chart
-        
+
         :param dict formatting_options: Formatting options for the Size Chart
         """
 
@@ -334,7 +333,7 @@ class SizeChart():
         note:: Does not alter Size Chart or Dynamic Cache since we don't want to delete.
         warning:: If Dynamic Size Cache has been enabled, you should not be using this as it can
             result in smallest leaning or largest leaning results (due to mid-point having changed)
-        
+
         :param int list_length: The length of the size list to generate
             Default - len(SIZE_CHART_DEFAULTS) (5)
         :return: List of sizes of specified length per formatting options
@@ -350,14 +349,14 @@ class SizeChart():
         addl_needed = abs(list_length - len(sorted_sizes))
         #Give priority to right side
         left_cnt, right_cnt = addl_needed // 2, -(-addl_needed // 2)  #Floor, Ceiling
-        
+
         if list_length < len(sorted_sizes):          #Will need to delete - so reverse counts
             sorted_sizes = sorted_sizes[right_cnt:mid+1] + \
             sorted_sizes[mid+1:len(sorted_sizes)-left_cnt]
 
         elif list_length > len(sorted_sizes):       #Will need to add
-            for x in range(0, max(left_cnt,right_cnt)):
-                if x < left_cnt:
+            for cnt in range(0, max(left_cnt,right_cnt)):
+                if cnt < left_cnt:
                     left = self._size_key_to_size(sorted_sizes[0])
                     sorted_sizes.insert(0, left[0].previous_size_key)
                 right = self._size_key_to_size(sorted_sizes[-1])

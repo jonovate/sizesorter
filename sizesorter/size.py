@@ -15,7 +15,7 @@ class Size():
         Initializes a Size object for the given value
 
         :param str key: The key/base of the size
-        :param int sort_value: The sort value of the 
+        :param int sort_value: The sort value of the Size
         :param str Verbose:
             Default - Will be set to key if not specified
         :param boolean is_dynamic_size: Whether the size is a dynamic size (ie: X-Size)
