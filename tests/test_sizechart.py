@@ -51,6 +51,18 @@ def test_class():
     size = next(iter(size_chart.size_chart.values()))
     assert str(size) == '{} ({})'.format(size.verbose, size.key)
 
+@pytest.mark.parametrize("size_chart, size_key, expected_tpl", 
+    [(default_size_chart, 'XS', ('2XS', 'S')),
+     (default_size_chart, 'S', ('XS', 'M')),
+     (default_size_chart, 'M', ('S','L')),
+     (default_size_chart, 'L', ('M', 'XL')), 
+     (default_size_chart, 'XL', ('L','2XL')),
+    ],)
+def test_class_default_double_pointers(size_chart, size_key, expected_tpl):
+    size = size_chart().size_chart[size_key]
+    assert size.previous_size_key == expected_tpl[0]
+    assert size.next_size_key == expected_tpl[1]
+
 @pytest.mark.parametrize("test_case_id, expected_tpl", 
     [(1, (ValueError, 'Size')),
      (2, (ValueError, 'key_smallest')),
@@ -211,82 +223,107 @@ def test_parse_size_key_exception(size_chart, size_key, expected_tpl):
     assert str(ee.value).find(expected_tpl[1]) > -1
 
     #TODO - Test Verbose and XXL keys    
+
 def test_dynamic_size_cache(default_size_chart):
     chart_size = len(default_size_chart)
-    default_size_chart._get_size('2XS')    #Size should remain the same
+    default_size_chart.get_or_create_size('2XS')    #Size should remain the same
     assert chart_size == len(default_size_chart)   
     
     default_size_chart.enable_dynamic_size_cache()
-    default_size_chart._get_size('2XL')   #Size should increase now
+    default_size_chart.get_or_create_size('2XL')   #Size should increase now
     chart_size += 1
     assert chart_size == len(default_size_chart) 
 
 @pytest.mark.parametrize("size_chart, size_key, expected_tpl", 
-    [(default_size_chart, 'XS', ('XS', 0, 'X-Small', True)),
-     (default_size_chart, '1XS', ('XS', 0, 'X-Small', True)),
-     (default_size_chart, '2XS', ('2XS', -10, '2X-Small', True)),
-     (default_size_chart, '15XS', ('15XS', -140, '15X-Small', True)),
-     (default_size_chart, 'XL', ('XL', 100, 'X-Large', True)),
-     (default_size_chart, '1XL', ('XL', 100, 'X-Large', True)),
-     (default_size_chart, '3XL', ('3XL', 120, '3X-Large', True)),
-     (default_size_chart, '10XL', ('10XL', 190, '10X-Large', True)),
-     (default_size_chart_and_dynamic_operations, 'XS', ('XS', 0, 'X-Small', True)),
-     (default_size_chart_and_dynamic_operations, '1XS', ('XS', 0, 'X-Small', True)),
-     (default_size_chart_and_dynamic_operations, '2XS', ('2XS', -10, '2X-Small', True)),
-     (default_size_chart_and_dynamic_operations, '15XS', ('15XS', -140, '15X-Small', True)),
-     (default_size_chart_and_dynamic_operations, 'XL', ('XL', 100, 'X-Large', True)),
-     (default_size_chart_and_dynamic_operations, '1XL', ('XL', 100, 'X-Large', True)),
-     (default_size_chart_and_dynamic_operations, '3XL', ('3XL', 120, '3X-Large', True)),
-     (default_size_chart_and_dynamic_operations, '10XL', ('10XL', 190, '10X-Large', True)),
-     (custom_size_chart, 'A', ('A', 1, 'A', True)),
-     (custom_size_chart, '1A', ('A', 1, 'A', True)),
-     (custom_size_chart, '3A', ('3A', -9, '3A', True)),
-     (custom_size_chart, '14A', ('14A', -64, '14A', True)),
-     (custom_size_chart, 'C', ('C', 3, 'C', True)),
-     (custom_size_chart, '1C', ('C', 3, 'C', True)),
-     (custom_size_chart, '5C', ('5C', 23, '5C', True)),
-     (custom_size_chart, '100C', ('100C', 498, '100C', True)),
+    [(default_size_chart, 'XS', ('XS', 0, 'X-Small', True, ('2XS', 'S'))),
+     (default_size_chart, '1XS', ('XS', 0, 'X-Small', True, ('2XS', 'S'))),
+     (default_size_chart, '2XS', ('2XS', -10, '2X-Small', True, ('3XS', 'XS'))),
+     (default_size_chart, '15XS', ('15XS', -140, '15X-Small', True, ('16XS', '14XS'))),
+     (default_size_chart, 'XL', ('XL', 100, 'X-Large', True, ('L', '2XL'))),
+     (default_size_chart, '1XL', ('XL', 100, 'X-Large', True, ('L', '2XL'))),
+     (default_size_chart, '3XL', ('3XL', 120, '3X-Large', True, ('2XL', '4XL'))),
+     (default_size_chart, '10XL', ('10XL', 190, '10X-Large', True, ('9XL', '11XL'))),
+     (default_size_chart_and_dynamic_operations, 'XS', ('XS', 0, 'X-Small', True, ('2XS', 'S'))),
+     (default_size_chart_and_dynamic_operations, '1XS', ('XS', 0, 'X-Small', True, ('2XS', 'S'))),
+     (default_size_chart_and_dynamic_operations, '2XS', ('2XS', -10, '2X-Small', True, ('3XS', 'XS'))),
+     (default_size_chart_and_dynamic_operations, '15XS', ('15XS', -140, '15X-Small', True, ('16XS', '14XS'))),
+     (default_size_chart_and_dynamic_operations, 'XL', ('XL', 100, 'X-Large', True, ('L', '2XL'))),
+     (default_size_chart_and_dynamic_operations, '1XL', ('XL', 100, 'X-Large', True, ('L', '2XL'))),
+     (default_size_chart_and_dynamic_operations, '3XL', ('3XL', 120, '3X-Large', True, ('2XL', '4XL'))),
+     (default_size_chart_and_dynamic_operations, '10XL', ('10XL', 190, '10X-Large', True, ('9XL', '11XL'))),
+     (custom_size_chart, 'A', ('A', 1, 'A', True, ('2A', 'B'))),
+     (custom_size_chart, '1A', ('A', 1, 'A', True, ('2A', 'B'))),
+     (custom_size_chart, '3A', ('3A', -9, '3A', True, ('4A', '2A'))),
+     (custom_size_chart, '14A', ('14A', -64, '14A', True, ('15A', '13A'))),
+     (custom_size_chart, 'C', ('C', 3, 'C', True, ('B', '2C'))),
+     (custom_size_chart, '1C', ('C', 3, 'C', True, ('B', '2C'))),
+     (custom_size_chart, '5C', ('5C', 23, '5C', True, ('4C', '6C'))),
+     (custom_size_chart, '100C', ('100C', 498, '100C', True, ('99C', '101C'))),
     ],)
 def test_generate_dynamic_size(size_chart, size_key, expected_tpl):
-    assert isinstance(size_chart()._generate_dynamic_size(size_key), Size)
+    
+    size_chart_gen = size_chart()._generate_dynamic_size(size_key)
+    assert isinstance(size_chart_gen, Size)
 
-    assert size_chart()._generate_dynamic_size(size_key).key == expected_tpl[0]
-    assert size_chart()._generate_dynamic_size(size_key).sort_value == expected_tpl[1]
-    assert size_chart()._generate_dynamic_size(size_key).verbose == expected_tpl[2]
-    assert size_chart()._generate_dynamic_size(size_key).is_dynamic_size == expected_tpl[3]
+    assert size_chart_gen.key == expected_tpl[0]
+    assert size_chart_gen.sort_value == expected_tpl[1]
+    assert size_chart_gen.verbose == expected_tpl[2]
+    assert size_chart_gen.is_dynamic_size == expected_tpl[3]
+
+    assert size_chart_gen.previous_size_key == expected_tpl[4][0]
+    assert size_chart_gen.next_size_key == expected_tpl[4][1]
 
     #TODO - Test XXL keys    
-    
-@pytest.mark.parametrize("size_chart, size_key, expected_tpl", 
-    [(default_size_chart, 'S', ('S', None)),
-     (default_size_chart, 'M', ('M', None)),
-     (default_size_chart, 'L', ('L', None)),
-     (default_size_chart, '2XL', ('XL', 1)),
-     (default_size_chart, '3XS', ('XS', -2)),
-     (default_size_chart_and_dynamic_operations, 'S', ('S', None)),
-     (default_size_chart_and_dynamic_operations, 'M', ('M', None)),
-     (default_size_chart_and_dynamic_operations, 'L', ('L', None)),
-     (default_size_chart_and_dynamic_operations, '2XL', ('XL', 1)),
-     (default_size_chart_and_dynamic_operations, '3XS', ('XS', -2)),
+
+@pytest.mark.parametrize("size_chart, size_key, expected_tpl",
+    [(default_size_chart, '5M', (ValueError, 'Suffix is not defined as dynamic size')),
+     (default_size_chart, 'B', (ValueError, 'Suffix is not defined as dynamic size')),
+     (default_size_chart, '-5XS', (ValueError, 'positive number or not set')),
+     (default_size_chart, '+4XL', (ValueError, 'positive number or not set')),
     ],)
-def test_get_size(size_chart, size_key, expected_tpl):
+def test_generate_dynamic_size_exception(size_chart, size_key, expected_tpl):
+    with pytest.raises(expected_tpl[0]) as ee:
+        default_size_chart()._generate_dynamic_size(size_key)
+
+    assert str(ee.value).find(expected_tpl[1]) > -1
+
+    #TODO - Test XXL keys    
+
+@pytest.mark.parametrize("size_chart, size_key, expected_tpl", 
+    [(default_size_chart, 'S', ('S', False, None, ('XS', 'M'))),
+     (default_size_chart, 'M', ('M',  False, None, ('S', 'L'))),
+     (default_size_chart, 'L', ('L',  False, None, ('M', 'XL'))),
+     (default_size_chart, '2XL', ('XL', True, 1, ('XL', '3XL'))),
+     (default_size_chart, '3XS', ('XS', True, -2, ('4XS', '2XS'))),
+     (default_size_chart_and_dynamic_operations, 'S', ('S', False, None, ('XS', 'M'))),
+     (default_size_chart_and_dynamic_operations, 'M', ('M', False, None, ('S', 'L'))),
+     (default_size_chart_and_dynamic_operations, 'L', ('L', False, None, ('M', 'XL'))),
+     (default_size_chart_and_dynamic_operations, '2XL', ('XL', True,  1, ('XL', '3XL'))),
+     (default_size_chart_and_dynamic_operations, '3XS', ('XS', True, -2, ('4XS', '2XS'))),
+    ],)
+def test_size_key_to_size(size_chart, size_key, expected_tpl):
     
-    dyn_size_base = size_chart()._get_size(expected_tpl[0])
+    dyn_size_base, _ = size_chart()._size_key_to_size(expected_tpl[0])
     assert dyn_size_base.key == expected_tpl[0]
     assert dyn_size_base.sort_value == SIZE_CHART_DEFAULTS[expected_tpl[0]].sort_value
+    
+    dyn_size, is_new = size_chart()._size_key_to_size(size_key)
+    assert is_new == expected_tpl[1]
+    assert (dyn_size.key not in size_chart().size_chart) == expected_tpl[1]
+    if not is_new:
+        return
 
-    if size_key not in SIZE_CHART_DEFAULTS:        
+    assert dyn_size.key == size_key
+    factor = expected_tpl[2] * (DYNAMIC_OPERATION_DEFAULTS.smallest_increment
+                                if dyn_size_base == DYNAMIC_OPERATION_DEFAULTS.key_smallest
+                                else DYNAMIC_OPERATION_DEFAULTS.largest_increment)
+    assert dyn_size.sort_value == SIZE_CHART_DEFAULTS[expected_tpl[0]].sort_value +factor       
+    assert dyn_size.sort_value == dyn_size_base.sort_value + factor
 
-        dyn_size = size_chart()._get_size(size_key)
-        assert dyn_size.key == size_key
-        factor = expected_tpl[1] * (DYNAMIC_OPERATION_DEFAULTS.smallest_increment
-                                    if dyn_size_base == DYNAMIC_OPERATION_DEFAULTS.key_smallest
-                                    else DYNAMIC_OPERATION_DEFAULTS.largest_increment)
-        assert dyn_size.sort_value == SIZE_CHART_DEFAULTS[expected_tpl[0]].sort_value +factor       
-        assert dyn_size.sort_value == dyn_size_base.sort_value + factor
+    assert dyn_size.previous_size_key == expected_tpl[3][0]
+    assert dyn_size.next_size_key == expected_tpl[3][1]
 
     #TODO - Test Verbose and XXL keys
-
 
 @pytest.mark.parametrize("default_size_chart, size_key, expected_tpl",
     [(default_size_chart, '5M', (ValueError, 'Base size not')),
@@ -294,10 +331,56 @@ def test_get_size(size_chart, size_key, expected_tpl):
      (default_size_chart, '-5XS', (ValueError, 'positive number or not set')),
      (default_size_chart, '+4XL', (ValueError, 'positive number or not set')),
     ],)    
-def test_get_size_exception(default_size_chart, size_key, expected_tpl):
+def test_test_size_key_to_size_exception(default_size_chart, size_key, expected_tpl):
     
     with pytest.raises(expected_tpl[0]) as ee:
-        default_size_chart()._get_size(size_key)
+        default_size_chart()._size_key_to_size(size_key)
+
+    assert str(ee.value).find(expected_tpl[1]) > -1
+
+@pytest.mark.parametrize("size_chart, size_key, expected_tpl", 
+    [(default_size_chart, 'S', ('S', None, ('XS', 'M'))),
+     (default_size_chart, 'M', ('M', None, ('S', 'L'))),
+     (default_size_chart, 'L', ('L', None, ('M', 'XL'))),
+     (default_size_chart, '2XL', ('XL', 1, ('XL', '3XL'))),
+     (default_size_chart, '3XS', ('XS', -2, ('4XS', '2XS'))),
+     (default_size_chart_and_dynamic_operations, 'S', ('S', None, ('XS', 'M'))),
+     (default_size_chart_and_dynamic_operations, 'M', ('M', None, ('S', 'L'))),
+     (default_size_chart_and_dynamic_operations, 'L', ('L', None, ('M', 'XL'))),
+     (default_size_chart_and_dynamic_operations, '2XL', ('XL', 1, ('XL', '3XL'))),
+     (default_size_chart_and_dynamic_operations, '3XS', ('XS', -2, ('4XS', '2XS'))),
+    ],)
+def test_get_or_create_size(size_chart, size_key, expected_tpl):
+    
+    dyn_size_base = size_chart().get_or_create_size(expected_tpl[0])
+    assert dyn_size_base.key == expected_tpl[0]
+    assert dyn_size_base.sort_value == SIZE_CHART_DEFAULTS[expected_tpl[0]].sort_value
+
+    if size_key not in size_chart().size_chart:
+
+        dyn_size = size_chart().get_or_create_size(size_key)
+        assert dyn_size.key == size_key
+        factor = expected_tpl[1] * (DYNAMIC_OPERATION_DEFAULTS.smallest_increment
+                                    if dyn_size_base == DYNAMIC_OPERATION_DEFAULTS.key_smallest
+                                    else DYNAMIC_OPERATION_DEFAULTS.largest_increment)
+        assert dyn_size.sort_value == SIZE_CHART_DEFAULTS[expected_tpl[0]].sort_value +factor       
+        assert dyn_size.sort_value == dyn_size_base.sort_value + factor
+
+        assert dyn_size.previous_size_key == expected_tpl[2][0]
+        assert dyn_size.next_size_key == expected_tpl[2][1]
+
+    #TODO - Test Verbose and XXL keys
+
+@pytest.mark.parametrize("default_size_chart, size_key, expected_tpl",
+    [(default_size_chart, '5M', (ValueError, 'Base size not')),
+     (default_size_chart, 'B', (ValueError, 'Base size not')),
+     (default_size_chart, '-5XS', (ValueError, 'positive number or not set')),
+     (default_size_chart, '+4XL', (ValueError, 'positive number or not set')),
+    ],)    
+def test_get_or_create_size_exception(default_size_chart, size_key, expected_tpl):
+    
+    with pytest.raises(expected_tpl[0]) as ee:
+        default_size_chart().get_or_create_size(size_key)
 
     assert str(ee.value).find(expected_tpl[1]) > -1
 
@@ -335,10 +418,22 @@ def test_generate_lengthed_list(size_chart, list_length, expected_list):
 
 @pytest.mark.parametrize("size_chart, start_range, end_range, expected_list", 
     [(default_size_chart, 'M', 'M', ['M']),
-    (default_size_chart, 'S', 'M', ['S','M']),
+     (default_size_chart, 'S', 'M', ['S','M']),
+     (default_size_chart, 'XS', 'XL', ['XS','S','M','L','XL']),
+     (default_size_chart, '2XS', 'XL', ['2XS','XS','S','M','L','XL']),
+     (default_size_chart, 'M', '3XL', ['M','L','XL','2XL','3XL']),
+     (default_size_chart, '2XS', '2XL', ['2XS','XS','S','M','L','XL','2XL']),
      (default_size_chart_and_dynamic_operations, 'S', 'S', ['S']),
      (default_size_chart_and_dynamic_operations, 'S', 'L', ['S','M','L']),
-     (custom_size_chart, 'B', 'C', ['B', 'C']),
+     (default_size_chart_and_dynamic_operations, 'XS', 'XL', ['XS','S','M','L','XL']),
+     (default_size_chart_and_dynamic_operations, '2XS', 'XL', ['2XS','XS','S','M','L','XL']),
+     (default_size_chart_and_dynamic_operations, 'S', '2XL', ['S','M','L','XL','2XL']),
+     (default_size_chart_and_dynamic_operations, '2XS', '2XL', ['2XS','XS','S','M','L','XL','2XL']),
+     (custom_size_chart, 'B', 'C', ['B','C']),
+     (custom_size_chart, 'A', 'C', ['A','B','C']),
+     (custom_size_chart, '3A', 'B', ['3A','2A','A','B']),
+     (custom_size_chart, 'A', '4C', ['A','B','C','2C','3C','4C']),
+     (custom_size_chart, '2A', '2C', ['2A','A','B','C','2C']),
     ],)
 def test_generate_range(size_chart, start_range, end_range, expected_list):
 
@@ -348,25 +443,7 @@ def test_generate_range(size_chart, start_range, end_range, expected_list):
     #TODO - Test Verbose and XXL keys
     #TODO - Test Single-Ended
 
-    # list_2 = size_chart.generate_list(2)
-    # assert ['M', 'L'] == list_2
-
-    # list_3 = size_chart.generate_list(3)
-    # assert ['S', 'M', 'L'] == list_3
-
-    # list_5 = size_chart.generate_list(5)
-    # assert ['XS','S','M','L','XL'] == list_5
-
-    # list_6 = size_chart.generate_list(6)
-    # assert ['XS','S','M','L','XL', '2XL'] == list_6
-
-    # list_7 = size_chart.generate_list(7)
-    # assert ['2XS','XS','S','M','L','XL','2XL'] == list_7
-
-    # list_8 = size_chart.generate_list(8)
-    # assert ['2XS','XS','S','M','L','XL','2XL', '3XL'] == list_8
-
-@pytest.mark.parametrize("size_chart, start_range, end_range, expected_tpl",
+@pytest.mark.parametrize("size_chart, start_range, end_range,  expected_tpl",
     [(default_size_chart, '5M', '5M', (ValueError, 'Base size not')),
      (default_size_chart, 'M', '5M', (ValueError, 'Base size not')),
      (default_size_chart, 'B', 'C', (ValueError, 'Base size not')),
@@ -376,15 +453,13 @@ def test_generate_range(size_chart, start_range, end_range, expected_list):
      (default_size_chart, 'XL', '+7XL', (ValueError, 'positive number or not set')),
     ],)
 def test_generate_range_exception(size_chart, start_range, end_range, expected_tpl):
-    
-    size = size_chart()
-    # with pytest.raises(expected_tpl[0]) as ee:
-    #     size.generate_range_list(start_range, end_range)
-        
+
     with pytest.raises(expected_tpl[0]) as ee:
-        size.generate_range_iter(start_range, end_range)
+        list(size_chart().generate_range_iter(start_range, end_range))  #Need to invoke iter
+    with pytest.raises(expected_tpl[0]) as ee:
+        size_chart().generate_range_list(start_range, end_range)
 
     assert str(ee.value).find(expected_tpl[1]) > -1
 
 if __name__ == "__main__":
-    pytest.main(['-q', '-s', '--no-cov', 'tests/test_sizechart.py::test_generate_range'])
+    pytest.main(['-q', '-s', '--no-cov', 'tests/test_sizechart.py'])

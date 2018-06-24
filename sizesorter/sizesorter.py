@@ -15,7 +15,8 @@ class SizeSorter:
     def _numeric_to_x(size):
         """
         Converts a numeric-prefixed extreme size nXS/nXL to X-prefixed size
-        Warning: Will convert 1XS to XS (debatable)
+        
+        note:: Will convert 1XS to XS (debatable)
 
         :param str size: The extreme size with numeric prefix
         :return: The extreme size as X-prefix
@@ -39,7 +40,8 @@ class SizeSorter:
     def _x_to_numeric(size):
         """
         Converts a X-prefixed extreme size XXS/XXXL to numeric-prefixed size.
-        Warning: Will NOT convert XS to 1XS (debatable)
+        
+        note:: Will NOT convert XS to 1XS (debatable)
         
         :param str size: The extreme size with X-prefix
         :return: The extreme size as numeric prefix
