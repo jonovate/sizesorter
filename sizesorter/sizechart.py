@@ -53,6 +53,7 @@ SIZE_CHART_FORMAT_DEFAULTS = {'verbose': False,
  ---N vs X
  ---Formatter
  ---Single Ended Dynamic Size
+ ---No Dynamic Size in chart
  ---Baby Size/Toddler Size/Kids Size
  ---Dynamic Size prefix increments
  ---Dynamic Size limits
