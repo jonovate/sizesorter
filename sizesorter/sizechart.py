@@ -8,36 +8,6 @@ from numbers import Number
 
 from .size import Size
 
-"""Default mapping of sizes to Size objects"""
-SIZE_CHART_DEFAULTS = {
-    'XS': Size('XS', 0, 'X-Small', True),
-    'S':  Size('S',  25, 'Small', False),
-    'M':  Size('M',  50, 'Medium', False),
-    'L':  Size('L',  75, 'Large', False),
-    'XL': Size('XL', 100, 'X-Large', True),
-}
-
-"""Minimal mapping of sizes to sort values"""
-SIZE_CHART_SIMPLE_EXAMPLE = {
-    'XS': 0,
-    'S': 25,
-    'M': 50,
-    'L': 75,
-    'XL': 100,
-}
-
-"""
-Example mapping for Women's Tops
-Reference: https://www.express.com/service/custserv.jsp?name=SizeChart
-"""
-SIZE_CHART_WOMENS_TOPS_EXAMPLE = {
-    'XS': 0,
-    'S': 4,
-    'M': 8,
-    'L': 12,
-    'XL': 16,
-}
-
 """
 Represents the defined Dynamic Values. 
 
@@ -51,6 +21,15 @@ Say size_chart['XS'] = 0, size_chart['XL'] = 100  and DynOp('XS', 5, -1) and Dyn
 Then 2XS would be -5, 3XS would be -10, 2XL would be 110, 3XL would be 120, etc.
 """
 DynOp = namedtuple('DynOp', 'base_suffix sort_value_increment growth_direction ')
+
+"""Default mapping of sizes to Size objects"""
+SIZE_CHART_DEFAULTS = {
+    'XS': Size('XS', 0, 'X-Small', True),
+    'S':  Size('S',  25, 'Small', False),
+    'M':  Size('M',  50, 'Medium', False),
+    'L':  Size('L',  75, 'Large', False),
+    'XL': Size('XL', 100, 'X-Large', True),
+}
 
 """Default Dynamic Operation offsets"""
 DYNAMIC_OPERATIONS_DEFAULTS = {'XS': DynOp('XS',10,-1), 'XL': DynOp('XL',10,1)}
@@ -86,6 +65,9 @@ class SizeChart():
 
     Principle: Size should only be visible externally from constructor, otherwise remain internal
     """
+
+    """The maximum length of a size chart"""  #used to prevent endless loops for bad values also
+    MAX_SIZE_CHART_LENGTH = 68
 
     def __init__(self, size_chart=None, dyn_ops=None, *, formatting_options=None):
         """
@@ -362,12 +344,17 @@ class SizeChart():
 
         :param int list_length: The length of the size list to generate
             Default - len(SIZE_CHART_DEFAULTS) (5)
+            Maximum length is SizeChart.MAX_SIZE_CHART_LENGTH
         :return: List of sizes of specified length per formatting options
         :rtype list
+
+        :raises ValueError If the list_length exceeds the Maximum
         """
         if list_length is None:  #For Pytest parameter hack
             list_length = len(SIZE_CHART_DEFAULTS)
- 
+        elif list_length > SizeChart.MAX_SIZE_CHART_LENGTH:
+            raise ValueError('Length of list exceeds maximum length')
+        
         ##TODO - Move this to Sorter class??
         sorted_sizes = [key for key,_ in sorted(self.size_chart.items(), key=lambda d: d[1])]
 
@@ -410,9 +397,12 @@ class SizeChart():
         next_size = start_size
         yield start_size.key
 
-        while next_size.key != end_range_key:
+        endless_loop_control = SizeChart.MAX_SIZE_CHART_LENGTH - 1
+
+        while next_size.key != end_range_key and endless_loop_control:
             next_size = self.get_or_create_size(next_size.next_size_key)
             yield next_size.key
+            endless_loop_control -= 1
 
     def generate_range_list(self, start_range_key, end_range_key):
         """

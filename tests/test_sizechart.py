@@ -13,9 +13,15 @@ from sizesorter import (
      SizeChart,
      SIZE_CHART_DEFAULTS,
      DYNAMIC_OPERATIONS_DEFAULTS,
-     SIZE_CHART_FORMAT_DEFAULTS
-    )
-from sizesorter.sizechart import SIZE_CHART_SIMPLE_EXAMPLE, SIZE_CHART_WOMENS_TOPS_EXAMPLE
+     SIZE_CHART_FORMAT_DEFAULTS,
+)
+from sizechart_samples import (
+    SIZE_CHART_SIMPLE,
+    SIZE_CHART_BABY_TODDLER_KID_SIZES,
+    DYNAMIC_OPS_BABY_TODDLER_KID_SIZES,
+    SIZE_CHART_WOMENS_TOPS,
+)
+
 
 # Doesn't work with Paramterized Test Cases. https://github.com/pytest-dev/pytest/issues/349
 # @pytest.fixture(scope='module',
@@ -40,22 +46,12 @@ def custom_size_chart():
     return SizeChart.from_simple_dict( {'A': 1, 'B': 2, 'C': 3}, custom_dynops())
 
 @pytest.fixture(scope='module')
-def baby_toddler_size_chart():
-    
-    #TODO - Test int and str keys
-    baby_toddler_sizes = {
-    'mo': Size('mo',0,'mo.',True),
-    'T':  Size('T',25, 'T',True),
-    '4': Size('4',54,'Size 4',False),
-    '5': Size('5',55,'Size 5',False),
-    '6': Size('6',56,'Size 6',False),
-    '7': Size('7',57,'Size 7',False),
-}
+def baby_toddler_kids_size_chart():
     #TODO -- Offset Increment
     #TODO - min/max dyn ops
-    dyn_ops = {'mo': DynOp('mo',1,1), 'T': DynOp('T',1,1)}
-    return SizeChart(baby_toddler_sizes, dyn_ops)
+    return SizeChart(SIZE_CHART_BABY_TODDLER_KID_SIZES, DYNAMIC_OPS_BABY_TODDLER_KID_SIZES)
 
+SIZE_CHART_DEFAULTS
 def test_class():
     size_chart = SizeChart()
     assert id(size_chart) > 0
@@ -474,6 +470,17 @@ def test_generate_lengthed_list(size_chart, list_length, expected_list):
     #TODO - Test Verbose and XXL keys
     #TODO - Test Single-Ended
 
+@pytest.mark.parametrize("size_chart, list_length, expected_tpl", 
+    [(default_size_chart, 100, (ValueError, 'Length of list exceeds')),
+    ],)
+def test_generate_lengthed_list_exception(size_chart, list_length, expected_tpl):
+
+    with pytest.raises(expected_tpl[0]) as ee:
+        default_size_chart().generate_lengthed_list(list_length)
+
+    assert str(ee.value).find(expected_tpl[1]) > -1
+
+
 @pytest.mark.parametrize("size_chart, start_range, end_range, expected_list", 
     [(default_size_chart, 'M', 'M', ['M']),
      (default_size_chart, 'S', 'M', ['S','M']),
@@ -492,6 +499,8 @@ def test_generate_lengthed_list(size_chart, list_length, expected_list):
      (custom_size_chart, '3A', 'B', ['3A','2A','A','B']),
      (custom_size_chart, 'A', '4C', ['A','B','C','2C','3C','4C']),
      (custom_size_chart, '2A', '2C', ['2A','A','B','C','2C']),
+    #  (baby_toddler_kids_size_chart, 'P', '12M', ['P', 'NB', '3M','6M', '9M','12M']),
+    #  (baby_toddler_kids_size_chart, '6M', '5', ['6M', '9M','12M', '2T', '3T', '4T', '4', '5T', '5']),
     ],)
 def test_generate_range(size_chart, start_range, end_range, expected_list):
 
@@ -509,6 +518,11 @@ def test_generate_range(size_chart, start_range, end_range, expected_list):
      (default_size_chart, 'XS', '-3XS', (ValueError, 'positive number or not set')),
      (default_size_chart, '+4XL', '+7XL', (ValueError, 'positive number or not set')),
      (default_size_chart, 'XL', '+7XL', (ValueError, 'positive number or not set')),
+    #  (baby_toddler_kids_size_chart, '1T', '5T', (ValueError, 'Base size not')),
+    #  (baby_toddler_kids_size_chart, '5T', '8T', (ValueError, 'Base size not')),
+    #  (baby_toddler_kids_size_chart, '2M', '12M', (ValueError, 'Base size not')),
+    #  (baby_toddler_kids_size_chart, '3M', '5M', (ValueError, 'Base size not')),
+    #  (baby_toddler_kids_size_chart, '6M', '36M', (ValueError, 'Base size not')),
     ],)
 def test_generate_range_exception(size_chart, start_range, end_range, expected_tpl):
 
