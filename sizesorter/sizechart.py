@@ -4,6 +4,7 @@ Structure of size charts and values
 
 from collections import namedtuple
 from copy import deepcopy
+from numbers import Number
 
 from .size import Size
 
@@ -15,7 +16,6 @@ SIZE_CHART_DEFAULTS = {
     'L':  Size('L',  75, 'Large', False),
     'XL': Size('XL', 100, 'X-Large', True),
 }
-
 
 """Minimal mapping of sizes to sort values"""
 SIZE_CHART_SIMPLE_EXAMPLE = {
@@ -39,18 +39,21 @@ SIZE_CHART_WOMENS_TOPS_EXAMPLE = {
 }
 
 """
-Represents the values to "increment" for smaller sizes and "increment" for larger sizes.
-Both values will be used in an addition operation.
+Represents the defined Dynamic Values. 
+
+    base_suffix: The suffix of the dynamic size, which must exist in the accompanying size chart
+    sort_value_increment: The increment for each new dynamic size from its dynamic base
+    growth_direction: Whether the dynamic values count down or count up (3XS, 2XS, XS versus XL, 2XL, 3XL).
+                        Positive means up, negative means down.
 
 Example:
-Say size_chart['XS'] = 0, size_chart['XL'] = 100  and dynamic_operation('XS', -5, 'XL', 10)
+Say size_chart['XS'] = 0, size_chart['XL'] = 100  and DynOp('XS', 5, -1) and DynOp('XL', 10, 1)
 Then 2XS would be -5, 3XS would be -10, 2XL would be 110, 3XL would be 120, etc.
 """
-dynamic_operation = namedtuple('dynamic_operation',
-                               'key_smallest smallest_increment key_largest largest_increment')
+DynOp = namedtuple('DynOp', 'base_suffix sort_value_increment growth_direction ')
 
 """Default Dynamic Operation offsets"""
-DYNAMIC_OPERATION_DEFAULTS = dynamic_operation('XS', -10, 'XL', 10)
+DYNAMIC_OPERATIONS_DEFAULTS = {'XS': DynOp('XS',10,-1), 'XL': DynOp('XL',10,1)}
 
 """
 Default Size Chart formatting options
@@ -73,6 +76,7 @@ SIZE_CHART_FORMAT_DEFAULTS = {'verbose': False,
  ---Single Ended Dynamic Size
  ---Baby Size/Toddler Size/Kids Size
  ---Dynamic Size prefix increments
+ ---Dynamic Size limits
 
  decorator, generators
 '''
@@ -83,38 +87,36 @@ class SizeChart():
     Principle: Size should only be visible externally from constructor, otherwise remain internal
     """
 
-    def __init__(self, size_chart=None, dynamic_operations=None, *, formatting_options=None):
+    def __init__(self, size_chart=None, dyn_ops=None, *, formatting_options=None):
         """
         Initializes a size chart wrapper class.
         The Dynamic Size Cache is disabled by default.
 
         :param dict size_chart: Map of sizes and values
             Default - Uses SIZE_CHART_DEFAULTS map
-        :param tpl dynamic_operations: Tuple of dynamic keys and offsets to apply to dynamic values
-            Default - Uses DYNAMIC_OPERATION_DEFAULTS
+        :param dict dyn_ops: Map of dynamic keys to DynOp Tuples
+            Default - Uses DYNAMIC_OPERATIONS_DEFAULTS
         :param dict formatting_options: Formatting options for the Size Chart
             Default - Uses SIZE_CHART_FORMAT_DEFAULTS map
 
-        :raise ValueError: If the dynamic_operation keys are not in the Size Chart or invalid
+        :raise ValueError: If the DynOp keys are not in the Size Chart or invalid
             (smaller_ should be negative, greater_ should be positive)
         """
         self._dynamic_size_cache = False
 
-        self.dynamic_operations = (dynamic_operations if dynamic_operations
-                                   else DYNAMIC_OPERATION_DEFAULTS)
+        self.dyn_ops = (dyn_ops if dyn_ops else DYNAMIC_OPERATIONS_DEFAULTS)
         size_chart_shallow = size_chart if size_chart else SIZE_CHART_DEFAULTS
 
         if not all([isinstance(v, Size) for v in size_chart_shallow.values()]):
             raise ValueError('Size Chart dictionary values should be of type Size,'
-                             'otherwise use .from_simple_dict()')
-        if not self.dynamic_operations.key_smallest in size_chart_shallow:
-            raise ValueError('key_smallest not in size_chart')
-        if not self.dynamic_operations.key_largest in size_chart_shallow:
-            raise ValueError('key_largest not in size_chart')
-        if not self.dynamic_operations.smallest_increment < 0:
-            raise ValueError('smallest_increment must be a negative number')
-        if not self.dynamic_operations.largest_increment > 0:
-            raise ValueError('largest_increment must be a positive number')
+                             'otherwise use `.from_simple_dict()`')
+
+        if any([(do not in size_chart_shallow) for do in self.dyn_ops.keys()]):
+            raise ValueError('DynOp base suffix not in size_chart')
+        if any([do.sort_value_increment < 1 for do in self.dyn_ops.values()]):
+            raise ValueError('DynOp sort_value_increment must be a positive number')
+        if any([do.growth_direction not in (-1,1) for do in self.dyn_ops.values()]):
+            raise ValueError('DynOp growth_direction must 1 or -1')
 
         self.size_chart = deepcopy(size_chart_shallow)
 
@@ -129,12 +131,12 @@ class SizeChart():
 
             #Make sure the dynamic_size property is set in case user forgot
             #  at same time, need to set double-linked pointers
-            if key == self.dynamic_operations.key_smallest:
+            if key in self.dyn_ops:
                 size_obj.is_dynamic_size = True
-                size_obj.previous_size_key = '2' + key
-            elif key == self.dynamic_operations.key_largest:
-                size_obj.is_dynamic_size = True
-                size_obj.next_size_key = '2' + key
+                if self.dyn_ops[key].growth_direction > 0:    #Incrementing sizes
+                    size_obj.next_size_key = '2' + key
+                else:                                          #Decrementing sizes
+                    size_obj.previous_size_key = '2' + key
 
         #Deepcopy since they can be overwritten after instantiation
         self.formatting_options = deepcopy(formatting_options
@@ -142,22 +144,21 @@ class SizeChart():
                                            else SIZE_CHART_FORMAT_DEFAULTS)
 
     @classmethod
-    def from_simple_dict(cls, simple_dict, dynamic_operations=None):
+    def from_simple_dict(cls, simple_dict, dyn_ops=None):
         """
         Builds a SizeChart instance from a simple map of Size key to sort value
 
-        :param tpl dynamic_operations: Tuple of dynamic keys and offsets to apply to dynamic values
-            Default - Uses DYNAMIC_OPERATION_DEFAULTS
+        :param dict dyn_ops: Map of dynamic keys to DynOp Tuples
+            Default - Uses DYNAMIC_OPERATIONS_DEFAULTS
 
         :raise ValueError: If simple_dict contains any values that are not Numbers
         :raise ValueError: If simple_dict contains any values that are not Numbers
         """
-        from numbers import Number
         if not all([isinstance(v, Number) for v in simple_dict.values()]):
-            raise ValueError('Size Chart dictionary values should be Numbers')
+            raise ValueError('Size Chart dictionary values must be Numbers')
 
         size_dict = {key: Size(key, value, key, False) for key, value in simple_dict.items()}
-        return cls(size_dict, dynamic_operations)
+        return cls(size_dict, dyn_ops)
 
     def __len__(self):
         """
@@ -168,17 +169,41 @@ class SizeChart():
         """
         return len(self.size_chart)
 
-    def _is_potentially_dynamic(self, size_key):
+    def _find_dynamic_operation(self, size_key):
         """
-        Determines whether the key could be considered (no guarantee) a dynamic key based on the
+        Indirectly determines whether the key could be considereda dynamic key based on the
         Dynamic Operations configuration passed in on instantiation.
-
-        :param str size_key: The size to look up in our chart.
-        :returns Whether the key would be considered a dynamic key based on its format
-        :rtype bool
+        
+        :param str size_key: The size key to look up in our chart.
+        :returns The Dynamic Operation if its dynamic, otherwise None
+        :rtype tpl (DynOp)
         """
-        return size_key.endswith(self.dynamic_operations.key_smallest) or \
-               size_key.endswith(self.dynamic_operations.key_largest)
+        dyn_ops = [dyn_op for base_suffix,dyn_op in self.dyn_ops.items()
+                   if size_key.endswith(base_suffix)]
+        return dyn_ops[0] if len(dyn_ops) > 0 else None
+
+    def _handle_single_prefix(self, size_key):
+        """
+        Removes any unncessary prefixes which means the same as another key (ie: 1XS to XS, '2' to 2)
+        
+        :param str size_key: The size key to look up in our chart.
+        :returns The size key with/without removed prefix
+        :rtype str
+        """
+
+        #If it's a numeric key, return as String
+        if isinstance(size_key, Number):
+            return str(size_key)
+
+        #If it's all digits, return as is
+        if size_key.isdigit():
+            return size_key
+
+        #If size key begins with a 1, and the second character is not numeric, then needs fix
+        if size_key[0].isdigit() and size_key[0] == '1' and not(size_key[1].isdigit()):
+            return size_key[1:]
+
+        return size_key
 
     def _parse_size_key(self, size_key):
         """
@@ -191,13 +216,11 @@ class SizeChart():
 
         :raises ValueError: If the key is not parsable (invalid characters, etc.)
         """
-        if not self._is_potentially_dynamic(size_key):
+        dyn_op = self._find_dynamic_operation(size_key)
+        if not dyn_op:
             return ('', size_key, False)
 
-        suff_len = (len(self.dynamic_operations.key_smallest)
-                   if size_key.endswith(self.dynamic_operations.key_smallest)
-                   else len(self.dynamic_operations.key_largest))
-
+        suff_len = len(dyn_op.base_suffix)
         prefix = size_key[:-suff_len]
         if not(prefix == '' or prefix.isalnum()):
             raise ValueError('Prefix of Dynamic Key must be a positive number or not set')
@@ -206,7 +229,7 @@ class SizeChart():
 
     def _generate_dynamic_size(self, size_key):
         """
-        Calculates a dynamic Size based on the key and the dynamic_operation of the Chart.
+        Calculates a dynamic Size based on the key and the DynOp of the Chart.
 
         :str size_key str: The Dynamic Key to generate a Size from
         :return The generated Dynamic Size
@@ -217,48 +240,50 @@ class SizeChart():
         """
 
         """INLINE"""
-        def __prefix_to_key(prefix, base_suffix, is_smaller_dynamic):
+        def __prefix_to_key(prefix, dyn_op):
             if prefix == 0:
-                return (base_suffix.next_size_key
-                       if is_smaller_dynamic  #If 0XS, then we want S which is next
-                       else base_suffix.previous_size_key)   #If 0XL, we want L which is previous
+                base_size = self.size_chart[dyn_op.base_suffix]
+                return (base_size.previous_size_key
+                       if dyn_op.growth_direction > 0  #If 0XS, then we want S which is next
+                       else base_size.next_size_key)   #If 0XL, we want L which is previous
             if prefix == 1:
-                return base_suffix.key
-            return str(prefix) + base_suffix.key
+                return dyn_op.base_suffix
+            return str(prefix) + dyn_op.base_suffix
 
         """INLINE"""
-        def __set_previous_next(size, int_prefix, base_suffix, is_smaller_dynamic):
-            #int_prefix is current prefix - 1
-            up_key = __prefix_to_key(int_prefix+2, base_suffix, is_smaller_dynamic)
-            down_key = __prefix_to_key(int_prefix, base_suffix, is_smaller_dynamic)
+        def __set_previous_next(dynamic_size, int_prefix, dyn_op):
+            #int_prefix is current prefix - 1       XS = 0, 2XL = 1
+            up_key = __prefix_to_key(int_prefix+2, dyn_op)
+            down_key = __prefix_to_key(int_prefix, dyn_op)
 
-            if is_smaller_dynamic:
-                dynamic_size.previous_size_key = up_key
-                dynamic_size.next_size_key = down_key
-            else:
+            if dyn_op.growth_direction > 0:                 #Positive... so L, XL, 2XL
                 dynamic_size.previous_size_key = down_key
                 dynamic_size.next_size_key = up_key
+            else:                                           #Negative... so 3XS, 2XS, XS
+                dynamic_size.previous_size_key = up_key
+                dynamic_size.next_size_key = down_key
 
         prefix, suffix, is_dynamic_size = self._parse_size_key(size_key)
         if not is_dynamic_size:
-            raise ValueError('Suffix is not defined as dynamic size')
-        base_suffix = self.size_chart[suffix]
+            raise ValueError('Suffix is not defined as Dynamic Size')
+        
+        base_size = self.size_chart[suffix]
+        if prefix == '':  #Its a base dynamic key, so just return it
+            return base_size
 
-        is_smaller_dynamic = (True if suffix == self.dynamic_operations.key_smallest else False)
+        sort_value = base_size.sort_value
 
-        sort_value = base_suffix.sort_value
+        dyn_op = self.dyn_ops[base_size.key]
+        
         int_prefix = (int(prefix) - 1 if prefix else 0)
         if int_prefix:  #Not empty
-            sort_value += int_prefix * (self.dynamic_operations.smallest_increment
-                                        if is_smaller_dynamic
-                                        else self.dynamic_operations.largest_increment)
+            sort_value += int_prefix * (dyn_op.growth_direction * dyn_op.sort_value_increment)
         else:
-            size_key = base_suffix.key
+            size_key = base_size.key
 
-        verbose = prefix + base_suffix.verbose
-
+        verbose = prefix + base_size.verbose
         dynamic_size = Size(size_key, sort_value, verbose, True)
-        __set_previous_next(dynamic_size, int_prefix, base_suffix, is_smaller_dynamic)
+        __set_previous_next(dynamic_size, int_prefix, dyn_op)
 
         return dynamic_size
 
@@ -273,18 +298,19 @@ class SizeChart():
         :raises ValueError: If an invalid dynamic size is passed in.
             Examples: '-5XL', '+3XL', '4L' {non-dynamic} or 'X' {invalid size}
         """
-        is_dynamic_size = self._is_potentially_dynamic(size_key)
+        size_key = self._handle_single_prefix(size_key)
 
         size = self.size_chart.get(size_key)
         is_new = size is None
 
         if is_new:
-            if is_dynamic_size:
-                size = self._generate_dynamic_size(size_key)
-            elif size_key.isnumeric():
-                size = Size(size_key, float(size_key), size_key, False)
-            else:
-                raise ValueError('Base size not defined and/or not dynamic')
+            try:
+                if size_key.isnumeric():
+                    size = Size(size_key, float(size_key), size_key, False)
+                else: 
+                    size = self._generate_dynamic_size(size_key)
+            except Exception as e:
+                raise ValueError('Base size not defined and/or not Dynamic: ' + str(e))
 
         return (size,is_new)
 
